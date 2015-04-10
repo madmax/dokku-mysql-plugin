@@ -216,6 +216,7 @@ case "$1" in
           "DATABASE_PASSWORD=$DB_PASSWORD" \
           "DATABASE_PORT=$PORT" \
           "DATABASE_HOST=$IP" \
+          "DATABASE_NAME=db" \
           "DATABASE_URL=mysql2://admin:$DB_PASSWORD@$IP/db"
         echo
         echo "-----> $APP linked to $DB_IMAGE database"
