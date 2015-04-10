@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e; 
+set -e;
 
 DOCKER_VOLUMES="/var/lib/docker/vfs/dir"
 
@@ -52,7 +52,7 @@ case "$1" in
         chown dokku: "$DOKKU_ROOT/.mysql/pass_$APP"
     fi
     # Fork DB image
-    ID=$(docker run -d hughfletcher/mysql /bin/bash "exit 0")   
+    ID=$(docker run -d hughfletcher/mysql /bin/bash "exit 0")
     docker wait $ID > /dev/null
     IMAGE=$(docker commit $ID)
     docker tag $IMAGE $DB_IMAGE
@@ -64,8 +64,8 @@ case "$1" in
         sleep 4
         docker run $DB_IMAGE mysqladmin -h $IP -u admin -p'mysql-server' password $DB_PASS
         docker run $DB_IMAGE mysqladmin -h $IP -u admin -p$DB_PASS create 'db'
-        # docker run mysql/create mysql -h $IP -u admin -p'newpass' -e "RENAME USER admin@'%' TO $DB_USER@'%';" 
-        
+        # docker run mysql/create mysql -h $IP -u admin -p'newpass' -e "RENAME USER admin@'%' TO $DB_USER@'%';"
+
         # Set volume path reference
         VOLUME_PATH=$(docker inspect $ID | grep /var/lib/docker/vfs/dir/ | awk '{print $2}' | sed -e's/"//g')
         echo $VOLUME_PATH > "$DOKKU_ROOT/.mysql/volume_$APP"
@@ -78,7 +78,7 @@ case "$1" in
     sleep 1
     dokku mysql:info $APP
     ;;
-    
+
   mysql:restart)
   	check_app $*
     DB_IMAGE=mysql/$APP
@@ -112,27 +112,27 @@ case "$1" in
     sleep 1
     dokku mysql:info $APP
     ;;
-    
+
   mysql:shell)
   	if [[ -f "$DOKKU_ROOT/.mysql/volume_$APP" ]]; then
         IP=$(docker inspect $ID | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
         sleep 4
         docker run $DB_IMAGE mysqladmin -h $IP -u admin -p'mysql-server' password $DB_PASS
         docker run $DB_IMAGE mysqladmin -h $IP -u admin -p$DB_PASS create 'db'
-        # docker run mysql/create mysql -h $IP -u admin -p'newpass' -e "RENAME USER admin@'%' TO $DB_USER@'%';" 
-        
+        # docker run mysql/create mysql -h $IP -u admin -p'newpass' -e "RENAME USER admin@'%' TO $DB_USER@'%';"
+
         # Set volume path reference
         VOLUME_PATH=$(docker inspect $ID | grep /var/lib/docker/vfs/dir/ | awk '{print $2}' | sed -e's/"//g')
         echo $VOLUME_PATH > "$DOKKU_ROOT/.mysql/volume_$APP"
         sleep 1
     fi
-	;;    
-    
+	;;
+
   mysql:delete)
     check_app $*
     DB_IMAGE=mysql/$APP
     # unlink from apps
-    #dokku mysql:unlink $APP    
+    #dokku mysql:unlink $APP
     # Stop the container and remove it
     ID=$(docker ps -a | grep "$DB_IMAGE":latest |  awk '{print $1}' | paste -d " " -s)
     if [[ ! -z $ID ]]; then
@@ -175,6 +175,24 @@ case "$1" in
     echo
     ;;
 
+  mysql:relink)
+    check_app $*
+    if $APP_EXISTS; then
+        # Check argument
+        if [[ -z $3 ]]; then
+            echo "You must specify a database name"
+            exit 1
+        fi
+        DB=$3
+
+        if [[ -f "$DOKKU_ROOT/$APP/.mysql_$DB" ]]; then
+            rm "$DOKKU_ROOT/$APP/.mysql_$DB"
+        fi
+
+        dokku mysql:link $APP $DB
+    fi
+    ;;
+
   mysql:link)
     check_app $*
     if $APP_EXISTS; then
@@ -193,10 +211,12 @@ case "$1" in
         DB_PASSWORD=$(cat "$DOKKU_ROOT/.mysql/pass_$DB")
         ID=$(docker ps | grep "$DB_IMAGE":latest |  awk '{print $1}')
         IP=`echo $(docker inspect -format="{{ .NetworkSettings.IPAddress }}" $ID)`
-        dokku config:set $APP "MYSQL_USER=admin"
-        dokku config:set $APP "MYSQL_PASSWORD=$DB_PASSWORD"
-        dokku config:set $APP "MYSQL_PORT=$PORT"
-        dokku config:set $APP "MYSQL_URL=mysql2://admin:$DB_PASSWORD@$IP/db"
+
+        dokku config:set $APP "DATABASE_USER=admin" \
+          "DATABASE_PASSWORD=$DB_PASSWORD" \
+          "DATABASE_PORT=$PORT" \
+          "DATABASE_HOST=$IP" \
+          "DATABASE_URL=mysql2://admin:$DB_PASSWORD@$IP/db"
         echo
         echo "-----> $APP linked to $DB_IMAGE database"
         # document link
@@ -204,7 +224,7 @@ case "$1" in
     fi
     ;;
 
-   mysql:unlink)
+  mysql:unlink)
     check_app $*
     if $APP_EXISTS; then
         # Check argument
@@ -234,8 +254,8 @@ case "$1" in
     ;;
 
   mysql:list)
-    find $DOKKU_ROOT/.mysql/volume* | awk -F _ '{ print $2 }'  
-    ;;      
+    find $DOKKU_ROOT/.mysql/volume* | awk -F _ '{ print $2 }'
+    ;;
 
   mysql-tests)
      check_app $*
