@@ -113,7 +113,23 @@ case "$1" in
     dokku mysql:info $APP
     ;;
 
-  mysql:shell)
+
+  mysql:restartall)
+    shopt -s nullglob
+    for db in $DOKKU_ROOT/.mysql/volume_*; do
+      DB=$(echo $db | awk -F _ '{ print $2 }');
+      dokku mysql:restart $DB
+    done
+
+    for app in $DOKKU_ROOT/*/.mysql_*; do
+      APP=$(basename "$(dirname $app)");
+      DB=$(basename $app | awk -F _ '{ print $2 }');
+      dokku mysql:relink $APP $DB
+    done
+  ;;
+
+
+ mysql:shell)
   	if [[ -f "$DOKKU_ROOT/.mysql/volume_$APP" ]]; then
         IP=$(docker inspect $ID | grep IPAddress | awk '{ print $2 }' | tr -d ',"')
         sleep 4
@@ -212,14 +228,15 @@ case "$1" in
         ID=$(docker ps | grep "$DB_IMAGE":latest |  awk '{print $1}')
         IP=`echo $(docker inspect -format="{{ .NetworkSettings.IPAddress }}" $ID)`
 
-        dokku config:set $APP "DATABASE_USER=admin" \
+
+        dokku config:set-norestart $APP "DATABASE_USER=admin" \
           "DATABASE_PASSWORD=$DB_PASSWORD" \
           "DATABASE_PORT=$PORT" \
           "DATABASE_HOST=$IP" \
           "DATABASE_NAME=db" \
           "DATABASE_URL=mysql2://admin:$DB_PASSWORD@$IP/db"
         echo
-        echo "-----> $APP linked to $DB_IMAGE database"
+        echo "-----> $APP linked to $DB_IMAGE database. You need restart app"
         # document link
         touch $DOKKU_ROOT/$APP/.mysql_$DB
     fi
